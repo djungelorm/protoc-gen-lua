@@ -100,7 +100,7 @@ static void pack_varint(luaL_Buffer *b, uint64_t value)
 
 static int varint_encoder(lua_State *L)
 {
-    lua_Number l_value = luaL_checknumber(L, 2);
+    lua_Integer l_value = luaL_checkinteger(L, 2);
     uint64_t value = (uint64_t)l_value;
 
     luaL_Buffer b;
@@ -116,7 +116,7 @@ static int varint_encoder(lua_State *L)
 
 static int signed_varint_encoder(lua_State *L)
 {
-    lua_Number l_value = luaL_checknumber(L, 2);
+    lua_Integer l_value = luaL_checkinteger(L, 2);
     int64_t value = (int64_t)l_value;
     
     luaL_Buffer b;
@@ -158,43 +158,53 @@ static int pack_fixed64(lua_State *L, uint8_t* value){
 static int struct_pack(lua_State *L)
 {
     uint8_t format = luaL_checkinteger(L, 2);
-    lua_Number value = luaL_checknumber(L, 3);
-    lua_settop(L, 1);
 
     switch(format){
         case 'i':
             {
-                int32_t v = (int32_t)value;
+                lua_Integer iValue = luaL_checkinteger(L, 3);
+                lua_settop(L, 1);
+                int32_t v = (int32_t)iValue;
                 pack_fixed32(L, (uint8_t*)&v);
                 break;
             }
         case 'q':
             {
-                int64_t v = (int64_t)value;
+                lua_Integer iValue = luaL_checkinteger(L, 3);
+                lua_settop(L, 1);
+                int64_t v = (int64_t)iValue;
                 pack_fixed64(L, (uint8_t*)&v);
                 break;
             }
         case 'f':
             {
-                float v = (float)value;
+                lua_Number fValue = luaL_checknumber(L, 3);
+                float v = (float)fValue;
+                lua_settop(L, 1);
                 pack_fixed32(L, (uint8_t*)&v);
                 break;
             }
         case 'd':
             {
-                double v = (double)value;
+                lua_Number fValue = luaL_checknumber(L, 3);
+                double v = (double)fValue;
+                lua_settop(L, 1);
                 pack_fixed64(L, (uint8_t*)&v);
                 break;
             }
         case 'I':
             {
-                uint32_t v = (uint32_t)value;
+                lua_Integer iValue = luaL_checkinteger(L, 3);
+                lua_settop(L, 1);
+                uint32_t v = (uint32_t)iValue;
                 pack_fixed32(L, (uint8_t*)&v);
                 break;
             }
         case 'Q':
             {
-                uint64_t v = (uint64_t) value;
+                lua_Integer iValue = luaL_checkinteger(L, 3);
+                lua_settop(L, 1);
+                uint64_t v = (uint64_t) iValue;
                 pack_fixed64(L, (uint8_t*)&v);
                 break;
             }
@@ -241,7 +251,7 @@ static int varint_decoder(lua_State *L)
     if(len == -1){
         luaL_error(L, "error data %s, len:%d", buffer, len);
     }else{
-        lua_pushnumber(L, (lua_Number)unpack_varint(buffer, len));
+        lua_pushinteger(L, (lua_Integer)unpack_varint(buffer, len));
         lua_pushinteger(L, len + pos);
     }
     return 2;
@@ -258,7 +268,7 @@ static int signed_varint_decoder(lua_State *L)
     if(len == -1){
         luaL_error(L, "error data %s, len:%d", buffer, len);
     }else{
-        lua_pushnumber(L, (lua_Number)(int64_t)unpack_varint(buffer, len));
+        lua_pushinteger(L, (lua_Integer)(int64_t)unpack_varint(buffer, len));
         lua_pushinteger(L, len + pos);
     }
     return 2;
@@ -282,7 +292,7 @@ static int zig_zag_decode32(lua_State *L)
 
 static int zig_zag_encode64(lua_State *L)
 {
-    int64_t n = (int64_t)luaL_checknumber(L, 1);
+    int64_t n = (int64_t)luaL_checkinteger(L, 1);
     uint64_t value = (n << 1) ^ (n >> 63);
     lua_pushinteger(L, value);
     return 1;
@@ -290,7 +300,7 @@ static int zig_zag_encode64(lua_State *L)
 
 static int zig_zag_decode64(lua_State *L)
 {
-    uint64_t n = (uint64_t)luaL_checknumber(L, 1);
+    uint64_t n = (uint64_t)luaL_checkinteger(L, 1);
     int64_t value = (n >> 1) ^ - (int64_t)(n & 1);
     lua_pushinteger(L, value);
     return 1;
@@ -350,7 +360,7 @@ static int struct_unpack(lua_State *L)
             }
         case 'q':
             {
-                lua_pushnumber(L, (lua_Number)*(int64_t*)unpack_fixed64(buffer, out));
+                lua_pushinteger(L, (lua_Integer)*(int64_t*)unpack_fixed64(buffer, out));
                 break;
             }
         case 'f':
@@ -365,12 +375,12 @@ static int struct_unpack(lua_State *L)
             }
         case 'I':
             {
-                lua_pushnumber(L, *(uint32_t*)unpack_fixed32(buffer, out));
+                lua_pushinteger(L, *(uint32_t*)unpack_fixed32(buffer, out));
                 break;
             }
         case 'Q':
             {
-                lua_pushnumber(L, (lua_Number)*(uint64_t*)unpack_fixed64(buffer, out));
+                lua_pushinteger(L, (lua_Integer)*(uint64_t*)unpack_fixed64(buffer, out));
                 break;
             }
         default:

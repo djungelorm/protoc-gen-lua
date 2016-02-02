@@ -1,4 +1,4 @@
-require 'person_pb'
+local person_pb = require 'person_pb'
 
 local person = person_pb.Person()
 person.id = 1000

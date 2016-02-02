@@ -16,6 +16,7 @@
 --------------------------------------------------------------------------------
 --
 
+
 local setmetatable = setmetatable
 local rawset = rawset
 local rawget = rawget
@@ -39,7 +40,7 @@ local descriptor = require "protobuf.descriptor"
 local FieldDescriptor = descriptor.FieldDescriptor
 local text_format = require "protobuf.text_format"
 
-module "protobuf"
+local module = {}
 
 local function make_descriptor(name, descriptor, usable_key)
   local meta = {
@@ -56,7 +57,7 @@ local function make_descriptor(name, descriptor, usable_key)
     return setmetatable({}, meta)
   end
 
-  _M[name] = setmetatable(descriptor, meta);
+  module[name] = setmetatable(descriptor, meta);
 end
 
 make_descriptor("Descriptor", {}, {
@@ -283,7 +284,7 @@ local function _DefaultValueConstructorForField(field)
   if field.cpp_type == FieldDescriptor.CPPTYPE_MESSAGE then
     local message_type = field.message_type
     return function (message)
-      result = message_type._concrete_class()
+      result = (message_type._concrete_class and message_type._concrete_class()) or message_type()
       result._SetListener(message._listener_for_children)
       return result
     end
@@ -356,14 +357,14 @@ local function _AddPropertiesForNonRepeatedCompositeField(field, message_meta)
   message_meta._getter[property_name] = function(self)
     local field_value = self._fields[field]
     if field_value == nil then
-      field_value = message_type._concrete_class()
+      field_value = (message_type._concrete_class and message_type._concrete_class()) or message_type()
       field_value:_SetListener(self._listener_for_children)
       self._fields[field] = field_value
     end
     return field_value
   end
   message_meta._setter[property_name] = function(self, new_value)
-    error('Assignment not allowed to composite field' .. property_name .. 'in protocol message object.' )
+    error('Assignment not allowed to composite field "' .. property_name .. '" in protocol message object.' )
   end
 end
 
@@ -912,4 +913,6 @@ local function Message(descriptor)
   return ns
 end
 
-_M.Message = Message
+module.Message = Message
+
+return module

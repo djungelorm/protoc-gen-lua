@@ -18,14 +18,14 @@
 
 local setmetatable = setmetatable
 
-module "protobuf.listener"
+local listener = {}
 
 local _null_listener = {
   Modified = function()
   end
 }
 
-function NullMessageListener()
+function listener.NullMessageListener()
   return _null_listener
 end
 
@@ -41,10 +41,13 @@ local _listener_meta = {
 }
 _listener_meta.__index = _listener_meta
 
-function Listener(parent_message)
+function listener.Listener(parent_message)
   local o = {}
   o.__mode = "v"
   o._parent_message = parent_message
   o.dirty = false
   return setmetatable(o, _listener_meta)
 end
+
+return listener
+

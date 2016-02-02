@@ -27,7 +27,7 @@ local pb = require "protobuf.pb"
 local encoder = require "protobuf.encoder"
 local wire_format = require "protobuf.wire_format"
 
-module "protobuf.decoder"
+local decoder = {}
 
 local _DecodeVarint = pb.varint_decoder
 local _DecodeSignedVarint = pb.signed_varint_decoder
@@ -35,7 +35,7 @@ local _DecodeSignedVarint = pb.signed_varint_decoder
 local _DecodeVarint32 = pb.varint_decoder
 local _DecodeSignedVarint32 = pb.signed_varint_decoder
 
-ReadTag = pb.read_tag
+decoder.ReadTag = pb.read_tag
 
 local function _SimpleDecoder(wire_type, decode_value)
   return function(field_number, is_repeated, is_packed, key, new_default)
@@ -108,9 +108,8 @@ local function _ModifiedDecoder(wire_type, decode_value, modify_value)
 end
 
 local function _StructPackDecoder(wire_type, value_size, format)
-  local struct_unpack = pb.struct_unpack
-
   function InnerDecode(buffer, pos)
+    local struct_unpack = pb.struct_unpack
     local new_pos = pos + value_size
     local result = struct_unpack(format, buffer, pos)
     return result, new_pos
@@ -122,27 +121,27 @@ local function _Boolean(value)
   return value ~= 0
 end
 
-Int32Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeSignedVarint32)
-EnumDecoder = Int32Decoder
+decoder.Int32Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeSignedVarint32)
+decoder.EnumDecoder = decoder.Int32Decoder
 
-Int64Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeSignedVarint)
+decoder.Int64Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeSignedVarint)
 
-UInt32Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint32)
-UInt64Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint)
+decoder.UInt32Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint32)
+decoder.UInt64Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint)
 
-SInt32Decoder = _ModifiedDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint32, wire_format.ZigZagDecode32)
-SInt64Decoder = _ModifiedDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint, wire_format.ZigZagDecode64)
+decoder.SInt32Decoder = _ModifiedDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint32, wire_format.ZigZagDecode32)
+decoder.SInt64Decoder = _ModifiedDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint, wire_format.ZigZagDecode64)
 
-Fixed32Decoder  = _StructPackDecoder(wire_format.WIRETYPE_FIXED32, 4, string.byte('I'))
-Fixed64Decoder  = _StructPackDecoder(wire_format.WIRETYPE_FIXED64, 8, string.byte('Q'))
-SFixed32Decoder = _StructPackDecoder(wire_format.WIRETYPE_FIXED32, 4, string.byte('i'))
-SFixed64Decoder = _StructPackDecoder(wire_format.WIRETYPE_FIXED64, 8, string.byte('q'))
-FloatDecoder    = _StructPackDecoder(wire_format.WIRETYPE_FIXED32, 4, string.byte('f'))
-DoubleDecoder   = _StructPackDecoder(wire_format.WIRETYPE_FIXED64, 8, string.byte('d'))
+decoder.Fixed32Decoder  = _StructPackDecoder(wire_format.WIRETYPE_FIXED32, 4, string.byte('I'))
+decoder.Fixed64Decoder  = _StructPackDecoder(wire_format.WIRETYPE_FIXED64, 8, string.byte('Q'))
+decoder.SFixed32Decoder = _StructPackDecoder(wire_format.WIRETYPE_FIXED32, 4, string.byte('i'))
+decoder.SFixed64Decoder = _StructPackDecoder(wire_format.WIRETYPE_FIXED64, 8, string.byte('q'))
+decoder.FloatDecoder    = _StructPackDecoder(wire_format.WIRETYPE_FIXED32, 4, string.byte('f'))
+decoder.DoubleDecoder   = _StructPackDecoder(wire_format.WIRETYPE_FIXED64, 8, string.byte('d'))
 
-BoolDecoder = _ModifiedDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint, _Boolean)
+decoder.BoolDecoder = _ModifiedDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint, _Boolean)
 
-function StringDecoder(field_number, is_repeated, is_packed, key, new_default)
+function decoder.StringDecoder(field_number, is_repeated, is_packed, key, new_default)
   local DecodeVarint = _DecodeVarint
   local sub = string.sub
   --local unicode = unicode
@@ -184,7 +183,7 @@ function StringDecoder(field_number, is_repeated, is_packed, key, new_default)
   end
 end
 
-function BytesDecoder(field_number, is_repeated, is_packed, key, new_default)
+function decoder.BytesDecoder(field_number, is_repeated, is_packed, key, new_default)
   local DecodeVarint = _DecodeVarint
   local sub = string.sub
   assert(not is_packed)
@@ -225,7 +224,7 @@ function BytesDecoder(field_number, is_repeated, is_packed, key, new_default)
   end
 end
 
-function MessageDecoder(field_number, is_repeated, is_packed, key, new_default)
+function decoder.MessageDecoder(field_number, is_repeated, is_packed, key, new_default)
   local DecodeVarint = _DecodeVarint
   local sub = string.sub
   assert(not is_packed)
@@ -275,13 +274,13 @@ function MessageDecoder(field_number, is_repeated, is_packed, key, new_default)
   end
 end
 
-function _SkipVarint(buffer, pos, pend)
+local function _SkipVarint(buffer, pos, pend)
   local value
   value, pos = _DecodeVarint(buffer, pos)
   return pos
 end
 
-function _SkipFixed64(buffer, pos, pend)
+local function _SkipFixed64(buffer, pos, pend)
   pos = pos + 8
   if pos > pend then
     error('Truncated message.')
@@ -289,7 +288,7 @@ function _SkipFixed64(buffer, pos, pend)
   return pos
 end
 
-function _SkipLengthDelimited(buffer, pos, pend)
+local function _SkipLengthDelimited(buffer, pos, pend)
   local size
   size, pos = _DecodeVarint(buffer, pos)
   pos = pos + size
@@ -299,7 +298,7 @@ function _SkipLengthDelimited(buffer, pos, pend)
   return pos
 end
 
-function _SkipFixed32(buffer, pos, pend)
+local function _SkipFixed32(buffer, pos, pend)
   pos = pos + 4
   if pos > pend then
     error('Truncated message.')
@@ -307,12 +306,12 @@ function _SkipFixed32(buffer, pos, pend)
   return pos
 end
 
-function _RaiseInvalidWireType(buffer, pos, pend)
+local function _RaiseInvalidWireType(buffer, pos, pend)
   error('Tag had invalid wire type.')
 end
 
-function _FieldSkipper()
-  WIRETYPE_TO_SKIPPER = {
+local function _FieldSkipper()
+  local WIRETYPE_TO_SKIPPER = {
     _SkipVarint,
     _SkipFixed64,
     _SkipLengthDelimited,
@@ -333,4 +332,7 @@ function _FieldSkipper()
   end
 end
 
-SkipField = _FieldSkipper()
+decoder.SkipField = _FieldSkipper()
+
+return decoder
+

@@ -1,8 +1,7 @@
 package = "protobuf"
 version = "%VERSION%-0"
 source = {
-    url = "git://github.com/djungelorm/protobuf-lua",
-    tag = "v%VERSION%",
+  url = "https://github.com/djungelorm/protobuf-lua/releases/download/v%VERSION%/protobuf-%VERSION%-0.tar.gz"
 }
 description = {
   summary = "protobuf library and compiler plugin",
@@ -24,7 +23,7 @@ build = {
     ["protobuf.wire_format"] = "protobuf/wire_format.lua",
     ["protobuf.listener"] = "protobuf/listener.lua",
     ["protobuf.type_checkers"] = "protobuf/type_checkers.lua",
-    ["protobuf.pb"] = { sources = {"protobuf/pb.c"} }
+    ["protobuf.pb"] = { sources = {"src/pb.c"} }
   },
   copy_directories = {"protoc-plugin"}
 }

@@ -1,0 +1,46 @@
+
+message ScalarTypes {
+    optional double double = 1;
+    optional int32 int32 = 2;
+    optional int64 int64 = 3;
+    optional uint32 uint32 = 4;
+    optional uint64 uint64 = 5;
+    optional sint32 sint32 = 6;
+    optional sint64 sint64 = 7;
+    optional fixed32 fixed32 = 8;
+    optional fixed64 fixed64 = 9;
+    optional sfixed32 sfixed32 = 10;
+    optional sfixed64 sfixed64 = 11;
+    optional bool bool = 12;
+    optional string string = 13;
+    optional bytes bytes = 14;
+    optional float float = 15;
+    repeated float r_floats = 16 [packed=true];
+}
+
+enum Enum {
+    SOMETHING = 0;
+    SOMETHING_ELSE = 1;
+    ANOTHER_THING =  2;
+}
+
+message Enums {
+    optional Enum enum = 1 [default = ANOTHER_THING];
+}
+
+message Extended {
+    extensions 10 to max;
+}
+
+message Extension {
+    extend Extended { repeated Extension exts = 10; }
+    required string value = 1;
+}
+
+message Embedded {
+    required string value = 1;
+}
+
+message Embed {
+    required Embedded embedded = 1;
+}
