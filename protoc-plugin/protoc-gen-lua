@@ -413,7 +413,7 @@ def code_gen_file(proto_file, env, is_gen):
         lua('local module = {}\n')
         lua('local protobuf = require \'protobuf\'\n')
         for i in includes:
-            lua('local %s_pb = require \'%s_pb\')\n' % (i, i))
+            lua('local %s_pb = require \'%s_pb\'\n' % (i, i))
 
         lua('\n')
         map(lua, env.descriptor)
