@@ -1,25 +1,19 @@
-.PHONY: all rockspec build clean
+.PHONY: all rockspec build install-test clean
 
-VERSION=1.1.0
-BUILDDIR = build
+VERSION = 1.1.1
 NAME = protobuf-$(VERSION)-0
 
 all: build
 
 rockspec:
-	mkdir -p $(BUILDDIR)
-	sed "s/%VERSION%/$(VERSION)/g" protobuf.rockspec > $(BUILDDIR)/protobuf-$(VERSION)-0.rockspec
+	sed "s/%VERSION%/$(VERSION)/g" protobuf.rockspec.tmpl > protobuf-$(VERSION)-0.rockspec
 
 build: rockspec
-	mkdir -p $(BUILDDIR)/$(NAME)
-	mkdir -p $(BUILDDIR)/$(NAME)/lua/protobuf
-	mkdir -p $(BUILDDIR)/$(NAME)/src
-	cp README.md LICENSE $(BUILDDIR)/$(NAME)/
-	cp -R protobuf/*.lua $(BUILDDIR)/$(NAME)/lua/protobuf/
-	cp -R protobuf/*.c $(BUILDDIR)/$(NAME)/src/
-	cp -R protoc-plugin $(BUILDDIR)/$(NAME)/
-	(cd $(BUILDDIR); tar czvpf $(NAME).tar.gz $(NAME)/)
+	luarocks pack protobuf-$(VERSION)-0.rockspec
+
+install-test: build
+	luarocks --tree=tree install protobuf-1.1.1-0.src.rock
 
 clean:
-	rm -rf $(BUILDDIR)
+	rm -rf *.rockspec *.rock src/pb.o src/pb.so tree
 	find . -name "*.pyc" -exec rm -rf {} \;
