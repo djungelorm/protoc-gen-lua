@@ -188,7 +188,7 @@ class Env(object):
             node = self.lookup_name(type_name)
         except Exception:  # FIXME specify exception type
             # if the child doesn't be founded, it must be in this file
-            return true
+            return True
         return node.filename == self.filename
 		
     def lookup_name(self, name):
