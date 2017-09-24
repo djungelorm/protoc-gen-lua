@@ -13,6 +13,7 @@
 from cStringIO import StringIO
 import os.path as path
 import sys
+import re
 
 # import google.protobuf.descriptor_pb2 as descriptor_pb2
 import plugin_pb2
@@ -182,6 +183,14 @@ class Env(object):
             return node.filename + '_pb.' + node.get_local_name()
         return node.get_local_name()
 
+    def has_declared(self, type_name):
+        try:
+            node = self.lookup_name(type_name)
+        except Exception:  # FIXME specify exception type
+            # if the child doesn't be founded, it must be in this file
+            return true
+        return node.filename == self.filename
+		
     def lookup_name(self, name):
         names = name.split('.')
         if names[0] == '':
@@ -340,8 +349,14 @@ def code_gen_field(index, field_desc, env):
 
     if field_desc.HasField('type_name'):
         if field_desc.type_name not in env.get_ref_name(field_desc.type_name):
-            type_name = constant(env.get_ref_name(field_desc.type_name))
-            type_name = 'module.%s' % type_name.strip('_')
+			if env.has_declared(field_desc.type_name):
+			    type_name = constant(env.get_ref_name(field_desc.type_name))
+			    type_name = 'module.%s' % type_name.strip('_')
+			else:
+			    # if it has not been declared in env, then its ref is %node_file_name%.%node_local_name%
+			    ref_parts = re.split('^(.*)\.(.*)$', env.get_ref_name(field_desc.type_name))
+			    ref_parts = list( filter(None, ref_parts) )
+			    type_name = "imports['%s'].%s" % (ref_parts[0], ref_parts[1].upper())
         else:
             names = env.get_ref_name(field_desc.type_name).split('.')
             type_name = names[0] + '.' + constant('.'.join(names[1:]))
@@ -450,8 +465,11 @@ def code_gen_file(proto_file, env, is_gen):
         write_header(lua)
         lua('local module = {}\n')
         lua('local protobuf = require \'protobuf\'\n')
-        for i in includes:
-            lua('local %s_pb = require \'%s_pb\'\n' % (i, i))
+		
+        if len(includes) > 0:
+            lua('local imports = {}\n')
+            for i in includes:
+                lua("imports['%s_pb'] = require \'%s_pb\'\n" % (i, i))
 
         lua('\n')
         map(lua, env.descriptor)
