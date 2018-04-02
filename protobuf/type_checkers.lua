@@ -61,6 +61,22 @@ function Uint32ValueChecker(IntValueChecker)
   end
 end
 
+function Uint64ValueChecker()
+  local _MIN = 0
+  -- The max values is 2^64 - 1. 
+  -- 0xffffffffffffffff does not do the trick for some reason and appears to be 2^32 - 1 when printed.
+  local _MAX = 18446744073709551615 
+  return function(proposed_value)
+    if type(proposed_value) ~= 'number' then
+      error(string.format('%s has type %s, but expected one of: number',
+                          proposed_value, type(proposed_value)))
+    end
+    if _MIN > proposed_value or proposed_value > _MAX then
+      error('Value out of range: ' .. proposed_value)
+    end
+  end
+end
+
 function UnicodeValueChecker()
   return function (proposed_value)
     if type(proposed_value) ~= 'string' then
