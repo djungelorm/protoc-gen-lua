@@ -10,12 +10,13 @@
 # Use, modification and distribution are subject to the 'New BSD License'
 # as listed at <url: http://www.opensource.org/licenses/bsd-license.php >.
 
-import sys
-import os.path as path
 from cStringIO import StringIO
+import os.path as path
+import sys
+import re
 
+# import google.protobuf.descriptor_pb2 as descriptor_pb2
 import plugin_pb2
-import google.protobuf.descriptor_pb2 as descriptor_pb2
 
 _packages = {}
 _files = {}
@@ -24,48 +25,74 @@ _message = {}
 FDP = plugin_pb2.descriptor_pb2.FieldDescriptorProto
 
 if sys.platform == 'win32':
-    import msvcrt, os
+    import msvcrt
+    import os
     msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
     msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
 
-class CppType:
-    CPPTYPE_INT32   = 1
-    CPPTYPE_INT64   = 2
-    CPPTYPE_UINT32  = 3
-    CPPTYPE_UINT64  = 4
-    CPPTYPE_DOUBLE  = 5
-    CPPTYPE_FLOAT   = 6
-    CPPTYPE_BOOL    = 7
-    CPPTYPE_ENUM    = 8
-    CPPTYPE_STRING  = 9
+
+class CppType(object):
+    CPPTYPE_INT32 = 1
+    CPPTYPE_INT64 = 2
+    CPPTYPE_UINT32 = 3
+    CPPTYPE_UINT64 = 4
+    CPPTYPE_DOUBLE = 5
+    CPPTYPE_FLOAT = 6
+    CPPTYPE_BOOL = 7
+    CPPTYPE_ENUM = 8
+    CPPTYPE_STRING = 9
     CPPTYPE_MESSAGE = 10
 
 CPP_TYPE = {
-    FDP.TYPE_DOUBLE   : CppType.CPPTYPE_DOUBLE,
-    FDP.TYPE_FLOAT    : CppType.CPPTYPE_FLOAT,
-    FDP.TYPE_INT64    : CppType.CPPTYPE_INT64,
-    FDP.TYPE_UINT64   : CppType.CPPTYPE_UINT64,
-    FDP.TYPE_INT32    : CppType.CPPTYPE_INT32,
-    FDP.TYPE_FIXED64  : CppType.CPPTYPE_UINT64,
-    FDP.TYPE_FIXED32  : CppType.CPPTYPE_UINT32,
-    FDP.TYPE_BOOL     : CppType.CPPTYPE_BOOL,
-    FDP.TYPE_STRING   : CppType.CPPTYPE_STRING,
-    FDP.TYPE_MESSAGE  : CppType.CPPTYPE_MESSAGE,
-    FDP.TYPE_BYTES    : CppType.CPPTYPE_STRING,
-    FDP.TYPE_UINT32   : CppType.CPPTYPE_UINT32,
-    FDP.TYPE_ENUM     : CppType.CPPTYPE_ENUM,
-    FDP.TYPE_SFIXED32 : CppType.CPPTYPE_INT32,
-    FDP.TYPE_SFIXED64 : CppType.CPPTYPE_INT64,
-    FDP.TYPE_SINT32   : CppType.CPPTYPE_INT32,
-    FDP.TYPE_SINT64   : CppType.CPPTYPE_INT64
+    FDP.TYPE_DOUBLE: CppType.CPPTYPE_DOUBLE,
+    FDP.TYPE_FLOAT: CppType.CPPTYPE_FLOAT,
+    FDP.TYPE_INT64: CppType.CPPTYPE_INT64,
+    FDP.TYPE_UINT64: CppType.CPPTYPE_UINT64,
+    FDP.TYPE_INT32: CppType.CPPTYPE_INT32,
+    FDP.TYPE_FIXED64: CppType.CPPTYPE_UINT64,
+    FDP.TYPE_FIXED32: CppType.CPPTYPE_UINT32,
+    FDP.TYPE_BOOL: CppType.CPPTYPE_BOOL,
+    FDP.TYPE_STRING: CppType.CPPTYPE_STRING,
+    FDP.TYPE_MESSAGE: CppType.CPPTYPE_MESSAGE,
+    FDP.TYPE_BYTES: CppType.CPPTYPE_STRING,
+    FDP.TYPE_UINT32: CppType.CPPTYPE_UINT32,
+    FDP.TYPE_ENUM: CppType.CPPTYPE_ENUM,
+    FDP.TYPE_SFIXED32: CppType.CPPTYPE_INT32,
+    FDP.TYPE_SFIXED64: CppType.CPPTYPE_INT64,
+    FDP.TYPE_SINT32: CppType.CPPTYPE_INT32,
+    FDP.TYPE_SINT64: CppType.CPPTYPE_INT64
 }
 
+DEFAULT_VALUE = {
+    FDP.TYPE_DOUBLE: '0.0',
+    FDP.TYPE_FLOAT: '0.0',
+    FDP.TYPE_INT64: '0',
+    FDP.TYPE_UINT64: '0',
+    FDP.TYPE_INT32: '0',
+    FDP.TYPE_FIXED64: '0',
+    FDP.TYPE_FIXED32: '0',
+    FDP.TYPE_BOOL: 'false',
+    FDP.TYPE_STRING: '\'\'',
+    FDP.TYPE_MESSAGE: 'nil',
+    FDP.TYPE_BYTES: '\'\'',
+    FDP.TYPE_UINT32: '0',
+    FDP.TYPE_ENUM: '1',
+    FDP.TYPE_SFIXED32: '0',
+    FDP.TYPE_SFIXED64: '0',
+    FDP.TYPE_SINT32: '0',
+    FDP.TYPE_SINT64: '0',
+}
+
+
 def printerr(*args):
+    args = [str(x) for x in args]
     sys.stderr.write(' '.join(args))
     sys.stderr.write('\n')
     sys.stderr.flush()
 
+
 class TreeNode(object):
+
     def __init__(self, name, parent=None, filename=None, package=None):
         super(TreeNode, self).__init__()
         self.child = []
@@ -94,7 +121,7 @@ class TreeNode(object):
                 return i
         return None
 
-    def get_path(self, end = None):
+    def get_path(self, end=None):
         pos = self
         out = []
         while pos and pos != end:
@@ -120,11 +147,12 @@ class TreeNode(object):
     def __repr__(self):
         return str(self)
 
-    def to_string(self, indent = 0):
+    def to_string(self, indent=0):
         return \
-            ' '*indent + '<TreeNode ' + self.name + '(\n' + \
+            ' ' * indent + '<TreeNode ' + self.name + '(\n' + \
             ','.join([i.to_string(indent + 4) for i in self.child]) + \
-            ' '*indent +')>\n'
+            ' ' * indent + ')>\n'
+
 
 class Env(object):
     filename = None
@@ -134,6 +162,7 @@ class Env(object):
     message = None
     context = None
     register = None
+
     def __init__(self):
         self.message_tree = TreeNode('')
         self.scope = self.message_tree
@@ -147,13 +176,21 @@ class Env(object):
     def get_ref_name(self, type_name):
         try:
             node = self.lookup_name(type_name)
-        except:
+        except Exception:  # FIXME specify exception type
             # if the child doesn't be founded, it must be in this file
             return type_name[len('.'.join(self.package)) + 1:]
         if node.filename != self.filename:
             return node.filename + '_pb.' + node.get_local_name()
         return node.get_local_name()
 
+    def has_declared(self, type_name):
+        try:
+            node = self.lookup_name(type_name)
+        except Exception:  # FIXME specify exception type
+            # if the child doesn't be founded, it must be in this file
+            return True
+        return node.filename == self.filename
+		
     def lookup_name(self, name):
         names = name.split('.')
         if names[0] == '':
@@ -187,7 +224,8 @@ class Env(object):
         self.scope = self.scope.parent
 
     def enter(self, message_name):
-        self.scope = TreeNode(message_name, self.scope, self.filename, self.package)
+        self.scope = TreeNode(message_name, self.scope,
+                              self.filename, self.package)
 
     def exit(self):
         self.scope = self.scope.parent
@@ -204,7 +242,9 @@ class Env(object):
             parent = TreeNode(i, parent, self.filename, self.package)
         return parent
 
+
 class Writer(object):
+
     def __init__(self, prefix=None):
         self.io = StringIO()
         self.__indent = ''
@@ -226,31 +266,16 @@ class Writer(object):
             self.io.write(self.__prefix)
         self.io.write(data)
 
-DEFAULT_VALUE = {
-    FDP.TYPE_DOUBLE         : '0.0',
-    FDP.TYPE_FLOAT          : '0.0',
-    FDP.TYPE_INT64          : '0',
-    FDP.TYPE_UINT64         : '0',
-    FDP.TYPE_INT32          : '0',
-    FDP.TYPE_FIXED64        : '0',
-    FDP.TYPE_FIXED32        : '0',
-    FDP.TYPE_BOOL           : 'false',
-    FDP.TYPE_STRING         : '\'\'',
-    FDP.TYPE_MESSAGE        : 'nil',
-    FDP.TYPE_BYTES          : '\'\'',
-    FDP.TYPE_UINT32         : '0',
-    FDP.TYPE_ENUM           : '1',
-    FDP.TYPE_SFIXED32       : '0',
-    FDP.TYPE_SFIXED64       : '0',
-    FDP.TYPE_SINT32         : '0',
-    FDP.TYPE_SINT64         : '0',
-}
+
+def constant(name):
+    return name.upper().replace('.', '_')
+
 
 def code_gen_enum_item(index, enum_value, env):
     full_name = env.get_local_name() + '.' + enum_value.name
-    obj_name = full_name.upper().replace('.', '_') + '_ENUM'
+    obj_name = constant(full_name) + '_ENUM'
     env.descriptor.append(
-        'module.%s = protobuf.EnumValueDescriptor()\n'% obj_name
+        'module.%s = protobuf.EnumValueDescriptor()\n' % obj_name
     )
 
     context = Writer('module.%s' % obj_name)
@@ -259,14 +284,15 @@ def code_gen_enum_item(index, enum_value, env):
     context('.number = %d\n' % enum_value.number)
 
     env.context.append(context.getvalue())
-    return obj_name
+    return 'module.%s' % obj_name
+
 
 def code_gen_enum(enum_desc, env):
     env.enter(enum_desc.name)
     full_name = env.get_local_name()
-    obj_name = full_name.upper().replace('.', '_')
+    obj_name = constant(full_name)
     env.descriptor.append(
-        'module.%s = protobuf.EnumDescriptor()\n'% obj_name
+        'module.%s = protobuf.EnumDescriptor()\n' % obj_name
     )
 
     context = Writer('module.%s' % obj_name)
@@ -282,11 +308,12 @@ def code_gen_enum(enum_desc, env):
     env.exit()
     return 'module.%s' % obj_name
 
+
 def code_gen_field(index, field_desc, env):
     full_name = env.get_local_name() + '.' + field_desc.name
-    obj_name = full_name.upper().replace('.', '_') + '_FIELD'
+    obj_name = constant(full_name) + '_FIELD'
     env.descriptor.append(
-        'module.%s = protobuf.FieldDescriptor()\n'% obj_name
+        'module.%s = protobuf.FieldDescriptor()\n' % obj_name
     )
 
     context = Writer('module.%s' % obj_name)
@@ -302,9 +329,14 @@ def code_gen_field(index, field_desc, env):
         context('.has_default_value = true\n')
         value = field_desc.default_value
         if field_desc.type == FDP.TYPE_STRING:
-            context('.default_value = \'%s\'\n'%value)
+            context('.default_value = \'%s\'\n' % value)
+        elif field_desc.type == FDP.TYPE_ENUM:
+            context('.default_value = module.%s\n' % (
+                    constant(env.get_ref_name(field_desc.type_name) +
+                             '_' + field_desc.default_value) + '_ENUM'
+                    ))
         else:
-            context('.default_value = %s\n'%value)
+            context('.default_value = %s\n' % value)
     else:
         context('.has_default_value = false\n')
         if field_desc.label == FDP.LABEL_REPEATED:
@@ -316,8 +348,18 @@ def code_gen_field(index, field_desc, env):
         context('.default_value = %s\n' % default_value)
 
     if field_desc.HasField('type_name'):
-        type_name = env.get_ref_name(field_desc.type_name).upper().replace('.', '_')
-        type_name = 'module.%s' % type_name.strip('_')
+        if field_desc.type_name not in env.get_ref_name(field_desc.type_name):
+			if env.has_declared(field_desc.type_name):
+			    type_name = constant(env.get_ref_name(field_desc.type_name))
+			    type_name = 'module.%s' % type_name.strip('_')
+			else:
+			    # if it has not been declared in env, then its ref is %node_file_name%.%node_local_name%
+			    ref_parts = re.split('^(.*)\.(.*)$', env.get_ref_name(field_desc.type_name))
+			    ref_parts = list( filter(None, ref_parts) )
+			    type_name = "imports['%s'].%s" % (ref_parts[0], ref_parts[1].upper())
+        else:
+            names = env.get_ref_name(field_desc.type_name).split('.')
+            type_name = names[0] + '.' + constant('.'.join(names[1:]))
         if field_desc.type == FDP.TYPE_MESSAGE:
             context('.message_type = %s\n' % type_name)
         else:
@@ -325,21 +367,28 @@ def code_gen_field(index, field_desc, env):
 
     if field_desc.HasField('extendee'):
         type_name = env.get_ref_name(field_desc.extendee)
-        env.register.append(
-            '%s.RegisterExtension(%s)\n' % (type_name, obj_name)
-        )
+        if env.get_ref_name(field_desc.extendee) not in field_desc.extendee:
+            env.register.append(
+                '%s.RegisterExtension(module.%s)\n' % (type_name, obj_name)
+            )
+        else:
+            env.register.append(
+                'module.%s.RegisterExtension(module.%s)\n' % (type_name,
+                                                              obj_name)
+            )
 
     context('.type = %d\n' % field_desc.type)
     context('.cpp_type = %d\n\n' % CPP_TYPE[field_desc.type])
     env.context.append(context.getvalue())
     return 'module.%s' % obj_name
 
-def code_gen_message(message_descriptor, env, containing_type = None):
+
+def code_gen_message(message_descriptor, env, containing_type=None):
     env.enter(message_descriptor.name)
     full_name = env.get_local_name()
-    obj_name = full_name.upper().replace('.', '_')
+    obj_name = constant(full_name)
     env.descriptor.append(
-        'module.%s = protobuf.Descriptor()\n'% obj_name
+        'module.%s = protobuf.Descriptor()\n' % obj_name
     )
 
     context = Writer('module.%s' % obj_name)
@@ -375,14 +424,18 @@ def code_gen_message(message_descriptor, env, containing_type = None):
     if containing_type:
         context('.containing_type = %s\n' % containing_type)
 
-    env.message.append('module.%s = protobuf.Message(%s)\n' % (full_name, 'module.%s' % obj_name))
+    env.message.append(
+        'module.%s = protobuf.Message(%s)\n' % (full_name,
+                                                'module.%s' % obj_name))
 
     env.context.append(context.getvalue())
     env.exit()
     return 'module.%s' % obj_name
 
+
 def write_header(writer):
     writer('-- Generated by protobuf; do not edit\n')
+
 
 def code_gen_file(proto_file, env, is_gen):
     filename = path.splitext(proto_file.name)[0]
@@ -393,7 +446,7 @@ def code_gen_file(proto_file, env, is_gen):
         inc_file = path.splitext(f)[0]
         includes.append(inc_file)
 
-    #for field_desc in proto_file.extension:
+    # for field_desc in proto_file.extension:
     #    code_gen_extensions(field_desc, field_desc.name, env)
 
     for enum_desc in proto_file.enum_type:
@@ -412,8 +465,11 @@ def code_gen_file(proto_file, env, is_gen):
         write_header(lua)
         lua('local module = {}\n')
         lua('local protobuf = require \'protobuf\'\n')
-        for i in includes:
-            lua('local %s_pb = require \'%s_pb\')\n' % (i, i))
+		
+        if len(includes) > 0:
+            lua('local imports = {}\n')
+            for i in includes:
+                lua("imports['%s_pb'] = require \'%s_pb\'\n" % (i, i))
 
         lua('\n')
         map(lua, env.descriptor)
@@ -425,14 +481,19 @@ def code_gen_file(proto_file, env, is_gen):
         lua('\n')
         map(lua, env.register)
         lua('\n')
-        lua('module.MESSAGE_TYPES = {'+','.join('\''+x.name+'\'' for x in proto_file.message_type)+'}\n')
-        lua('module.ENUM_TYPES = {'+','.join('\''+x.name+'\'' for x in proto_file.enum_type)+'}\n')
+        lua('module.MESSAGE_TYPES = {' +
+            ','.join('\'' + x.name +
+                     '\'' for x in proto_file.message_type) + '}\n')
+        lua('module.ENUM_TYPES = {' +
+            ','.join('\'' + x.name +
+                     '\'' for x in proto_file.enum_type) + '}\n')
         lua('\n')
 
         lua('return module\n')
 
-        _files[env.filename+ '_pb.lua'] = lua.getvalue()
+        _files[env.filename + '_pb.lua'] = lua.getvalue()
     env.exit_file()
+
 
 def main():
     plugin_require_bin = sys.stdin.read()
@@ -442,10 +503,10 @@ def main():
     env = Env()
     for proto_file in code_gen_req.proto_file:
         code_gen_file(proto_file, env,
-                proto_file.name in code_gen_req.file_to_generate)
+                      proto_file.name in code_gen_req.file_to_generate)
 
     code_generated = plugin_pb2.CodeGeneratorResponse()
-    for k in  _files:
+    for k in _files:
         file_desc = code_generated.file.add()
         file_desc.name = k
         file_desc.content = _files[k]
@@ -454,4 +515,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

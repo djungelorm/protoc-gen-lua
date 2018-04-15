@@ -15,3 +15,10 @@ Make a link to the protoc plugin, for example:
 proto files can then be compiled using: ```protoc --lua_out=./ foo.proto```
 
 The API is similar to Google's protobuf python library. An example can be found in the example directory.
+
+## Changelog
+
+### Fixed
+
+- The issues that are addressed by this PR: https://github.com/djungelorm/protobuf-lua/pull/13
+- **Inappropriate use of the uint32 value checker to handle the uint64 type**: https://github.com/Enfernuz/protobuf-lua/issues/1
