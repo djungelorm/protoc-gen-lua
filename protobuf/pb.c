@@ -28,6 +28,9 @@
 
 #if defined(_ALLBSD_SOURCE) || defined(__APPLE__)
 #include <machine/endian.h>
+#elif defined(_WIN32)
+#define __LITTLE_ENDIAN 1234
+#define __BYTE_ORDER __LITTLE_ENDIAN
 #else
 #include <endian.h>
 #endif
